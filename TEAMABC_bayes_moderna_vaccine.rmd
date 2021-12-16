@@ -1,0 +1,99 @@
+---
+title: "CC STA305"
+author: "Team ABC"
+date: "17/12/2021"
+output: html_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rjags)
+```
+
+# Mise en place des échantillons observés 
+```{r}
+placebo <- rep(0, 15170)
+placebo[1:185] <- 1 #185 cas COVID
+
+moderna <- rep(0, 15181)
+moderna[1:11] <- 1 #11 cas COVID
+
+```
+
+
+# Création du modèle jags
+```{r}
+jags1 <- jags.model("bugs_moderna.txt", data = list("placebo" = placebo, "nplacebo" = length(placebo), "moderna" = moderna, "nmoderna" = length(moderna)), inits = list(list(logRR = -0.3, probaC = 0.05), list(logRR = -0.125, probaC = 0.1), list(logRR = 0.3, probaC = 0.03)), n.chains = 3)
+```
+
+# Tirage
+```{r}
+a <- coda.samples(jags1, variable.names=c("probaC", "efficacite", "ratio"), n.iter=8000)
+```
+
+# Phase de chauffe de 2000
+```{r}
+b <- window(a, start = 2001, end = 8000)
+```
+
+# Résumé
+```{r}
+summary(b)
+```
+
+# Graphiques utiles
+```{r}
+plot(b)
+```
+
+```{r}
+gelman.plot(b)
+```
+
+```{r}
+autocorr.plot(b)
+```
+
+```{r}
+acfplot(b)
+```
+
+```{r}
+cumuplot(b)
+```
+
+```{r}
+crosscorr.plot(b)
+```
+
+```{r}
+coda::effectiveSize(b)
+```
+
+# Intevalles de crédibilité
+```{r}
+library(HDInterval)
+```
+
+```{r}
+credinterval <- hdi(b, credMass = 0.95)
+```
+
+## Pour l'efficacité du vaccin Moderna
+```{r}
+hdi_eff <- c(hdi(b, credMass = 0.95)[1,1],hdi(b, credMass = 0.95)[2,1])
+hdi_eff
+```
+
+## Pour la probabilité d'avoir le COVID
+```{r}
+hdi_pc <- c(hdi(b, credMass = 0.95)[1,2],hdi(b, credMass = 0.95)[2,2])
+hdi_pc
+```
+
+## Pour le ratio infectés Placebo/infectés Moderna
+```{r}
+hdi_ratio <- c(hdi(b, credMass = 0.95)[1,3],hdi(b, credMass = 0.95)[2,3])
+hdi_ratio
+```
+
